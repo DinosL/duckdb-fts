@@ -1,5 +1,7 @@
 # Full-Text Search Extension
 
+
+
 Full-Text Search is an extension to DuckDB that allows for search through strings, similar to [SQLite's FTS5 extension](https://www.sqlite.org/fts5.html).
 
 ## Installing and Loading
