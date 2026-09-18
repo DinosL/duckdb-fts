@@ -3,8 +3,6 @@ name: Forward PR events to pr-tracker
 on:
   pull_request_target:
     types: [opened, reopened, ready_for_review, converted_to_draft, closed, labeled, unlabeled, review_requested]
-  pull_request_review:
-    types: [submitted]
   issue_comment:
     types: [created]
 
@@ -27,40 +25,20 @@ jobs:
           # PR events carry pull_request.number; an issue_comment on a PR carries
           # it as issue.number.
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-          # Present only on pull_request_review; empty otherwise.
-          REVIEW_STATE: ${{ github.event.review.state }}
-          REVIEWER: ${{ github.event.review.user.login }}
-          REVIEW_URL: ${{ github.event.review.html_url }}
-          REVIEW_ID: ${{ github.event.review.id }}
           # Present only on labeled/unlabeled; empty otherwise.
           LABEL: ${{ github.event.label.name }}
           # Present only on issue_comment; empty otherwise.
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
-          # A pull_request_review (a formal Approve / Request-changes) on a fork
-          # PR runs without secrets, so the token is empty. That path can't
-          # dispatch — skip cleanly (green) instead of failing loudly on the
-          # source repo. pull_request_target events and issue_comment keep their
-          # secrets even on fork PRs, so only formal reviews land here; the poll
-          # backstop (track-prs.yml) is the safety net for those.
-          if [ -z "$GH_TOKEN" ]; then
-            echo "No dispatch token (fork PR — secrets withheld); skipping." >&2
-            exit 0
-          fi
           jq -n \
             --arg event "$EVENT_KIND" \
             --arg action "$EVENT_ACTION" \
             --arg repo "$REPO" \
             --argjson number "$PR_NUMBER" \
-            --arg review_state "$REVIEW_STATE" \
-            --arg reviewer "$REVIEWER" \
-            --arg review_url "$REVIEW_URL" \
-            --arg review_id "$REVIEW_ID" \
             --arg label "$LABEL" \
             --arg commenter "$COMMENTER" \
             '{event_type: "pr-event", client_payload: {
                event: $event, action: $action, repo: $repo, number: $number,
-               review_state: $review_state, reviewer: $reviewer, review_url: $review_url,
-               review_id: $review_id, label: $label, commenter: $commenter
+               label: $label, commenter: $commenter
              }}' \
           | gh api -X POST /repos/duckdblabs/pr-tracker/dispatches --input -
